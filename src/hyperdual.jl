@@ -52,6 +52,8 @@ promote_rule{T<:Real}(::Type{Hyper{T}}, ::Type{T}, ::Type{T}, ::Type{T}) = Hyper
 promote_rule{T<:Real, S<:Real, Q<:Real, P<:Real}(::Type{Hyper{T}}, ::Type{S}, ::Type{Q}, ::Type{P}) =
     Hyper{promote_type(T, S, Q, P)}
 
+promote_rule{T<:Real, S<:Real}(::Type{Hyper{T}}, ::Type{S}) = Hyper{promote_type(T, S)}
+
 hyper(x, y, z, yz) = Hyper(x, y, z, yz)
 hyper(x) = Hyper(x)
 hyper() = Hyper()
@@ -131,7 +133,7 @@ function hyper_show(io::IO, z::Hyper, compact::Bool)
       print(io, "\u03F51\u03F52")
     end
   else
-    print(io, "dual(", f0, ",", f1, ",", f2, ",", f12, ")")
+    print(io, "Hyper(", f0, ",", f1, ",", f2, ",", f12, ")")
   end
 end
 
@@ -181,14 +183,21 @@ convert(::Type{Hyper}, x::Real) = hyper(x)
 *(z::Hyper, w::Real) = hyper(real(z) * w, eps1(z)*w, eps2(z)*w, w*eps1eps2(z))
 *(z::Number, w::Hyper) = w * z
 
-/(z::Hyper, w::Hyper) = z*w^-1
-/(z::Number, w::Hyper) = z*w^-1
+/(z::Hyper, w::Hyper) = z*(one(real(z))/w)
+function /(z::Number, w::Hyper)
+    invrw = one(z)/real(w)
+    deriv = -z*invrw^2
+    hyper(z*invrw, eps1(w)*deriv, eps2(w)*deriv,
+          eps1eps2(w)*deriv-2eps1(w)*eps2(w)*deriv*invrw)
+end
 
 # Needed to prevent ambiguous warning:
 #   /(Number,Complex{T<:Real}) at complex.jl:127
 
 /(z::Hyper, w::Complex) = hyper(real(z)/w, eps1(z)/w, eps2(z)/w, eps1eps2(z)/w)
 /(z::Hyper, w::Number) = hyper(real(z)/w, eps1(z)/w, eps2(z)/w, eps1eps2(z)/w)
+
+abs2(z::Hyper) = z*z
 
 function ^(z::Hyper, w::Rational)
   deriv = w * real(z)^(w-1)
